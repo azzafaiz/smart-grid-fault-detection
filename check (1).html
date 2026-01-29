@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Grid Monitor</title>
+<style>
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    background: #1c1c1c;
+    color: white;
+    display: flex;
+    height: 100vh;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 300px;
+    background: #222;
+    padding: 20px;
+    overflow-y: auto;
+    border-right: 2px solid #444;
+}
+.sidebar h2 {
+    color: #00c853;
+    margin-bottom: 10px;
+    font-size: 18px;
+    border-bottom: 1px solid #444;
+    padding-bottom: 5px;
+}
+.statusBox {
+    background: #2a2a2a;
+    margin-bottom: 10px;
+    padding: 10px;
+    border-radius: 8px;
+}
+.statusBox h3 {
+    margin: 0;
+    font-size: 15px;
+    color: #00e676;
+}
+.statusBox p {
+    margin: 2px 0;
+    font-size: 13px;
+}
+
+/* Map Area */
+.map-container {
+    flex: 1;
+    position: relative;
+    background: linear-gradient(-45deg, #0f9b0f, #00ff95, #1abc9c, #009e60);
+    background-size: 400% 400%;
+    animation: premiumGradient 12s ease infinite;
+    overflow: hidden;
+}
+@keyframes premiumGradient {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+svg {
+    position: absolute;
+    width: 100%; height: 100%;
+}
+.post {
+    fill: #00bcd4;
+    stroke: white;
+    stroke-width: 2;
+    filter: drop-shadow(0 0 5px #00e5ff);
+    cursor: pointer;
+    transition: filter 0.2s;
+}
+.post:hover {
+    filter: drop-shadow(0 0 10px #00e5ff);
+}
+.station {
+    fill: gold;
+    stroke: white;
+    stroke-width: 2;
+    filter: drop-shadow(0 0 10px gold);
+}
+.line {
+    stroke-width: 3;
+    stroke: #555;
+    transition: stroke 0.5s;
+}
+.status {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 14px;
+    background: rgba(0,0,0,0.6);
+    padding: 6px 12px;
+    border-radius: 6px;
+}
+
+/* Modal */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    justify-content: center;
+    align-items: center;
+}
+.modal-content {
+    background: rgba(255,255,255,0.1);
+    border-radius: 15px;
+    padding: 20px;
+    color: #fff;
+    text-align: center;
+    width: 300px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+}
+.modal-content h3 {
+    margin-bottom: 15px;
+}
+.closeBtn {
+    float: right;
+    font-size: 20px;
+    cursor: pointer;
+}
+button {
+    margin: 10px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(45deg, #00c853, #1abc9c);
+    color: #fff;
+    cursor: pointer;
+    transition: 0.3s;
+}
+button:hover {
+    opacity: 0.9;
+}
+.relayBtn {
+    padding: 10px;
+    margin: 5px;
+    border-radius: 8px;
+    cursor: pointer;
+    min-width: 70px;
+}
+.relayBtn.on {
+    background-color: #00e676;
+    color: black;
+}
+.relayBtn.off {
+    background-color: #ff4444;
+    color: white;
+}
+.relayBtn.on:hover {
+    background-color: #00b050;
+    filter: brightness(1.1);
+}
+.relayBtn.off:hover {
+    background-color: #cc3333;
+    filter: brightness(1.1);
+}
+</style>
+</head>
+<body>
+<div class="sidebar">
+    <h2>⚡ Posts</h2>
+    <div id="postData"></div>
+    <h2>🔧 Relays</h2>
+    <div id="relayData"></div>
+    <h2>📜 Logs</h2>
+    <div id="logData"></div>
+    <h2>⚠️ Fault & Reroute</h2>
+<div id="faultData"></div>
+
+</div>
+
+<div class="map-container">
+    <svg viewBox="0 0 600 500">
+        <line id="line12" class="line" x1="150" y1="100" x2="450" y2="100"/>
+        <line id="line23" class="line" x1="450" y1="100" x2="450" y2="400"/>
+        <line id="line34" class="line" x1="450" y1="400" x2="150" y2="400"/>
+        <line id="line41" class="line" x1="150" y1="400" x2="150" y2="100"/>
+        <line id="line13" class="line" x1="150" y1="100" x2="450" y2="400"/>
+        <line id="line24" class="line" x1="450" y1="100" x2="150" y2="400"/>
+        <line id="line_station_p1" class="line" x1="300" y1="50" x2="150" y2="100"/>
+        <rect id="station" class="station" x="270" y="20" width="60" height="30" rx="5"/>
+        <text x="300" y="40" text-anchor="middle" font-size="12" font-weight="bold" fill="black">Station</text>
+        <circle id="post1" class="post" cx="150" cy="100" r="18" onclick="showRelayButtons('P1')"/>
+        <text x="150" y="100" dy="0.3em" text-anchor="middle" font-size="14" fill="white">P1</text>
+        <circle id="post2" class="post" cx="450" cy="100" r="18" onclick="showRelayButtons('P2')"/>
+        <text x="450" y="100" dy="0.3em" text-anchor="middle" font-size="14" fill="white">P2</text>
+        <circle id="post3" class="post" cx="450" cy="400" r="18" onclick="showRelayButtons('P3')"/>
+        <text x="450" y="400" dy="0.3em" text-anchor="middle" font-size="14" fill="white">P3</text>
+        <circle id="post4" class="post" cx="150" cy="400" r="18" onclick="showRelayButtons('P4')"/>
+        <text x="150" y="400" dy="0.3em" text-anchor="middle" font-size="14" fill="white">P4</text>
+    </svg>
+    <div class="status" id="statusMsg">Waiting for updates...</div>
+</div>
+
+<div id="relayModal" class="modal">
+    <div class="modal-content">
+        <span class="closeBtn">&times;</span>
+        <h3 id="relayTitle">Relay Controls</h3>
+        <div id="relayButtons"></div>
+    </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+// Firebase Config
+const firebaseConfig = {
+    apiKey: "AIzaSyBzlpCWQ4Yhr9ftC2XTLUyUWU3wbW7vpxQ",
+    authDomain: "smartgrid-6d88d.firebaseapp.com",
+    projectId: "smartgrid-6d88d",
+    storageBucket: "smartgrid-6d88d.appspot.com",
+    messagingSenderId: "1027245322900",
+    appId: "1:1027245322900:web:e5f6fff1e1131a73d1ba81",
+    databaseURL: "https://smartgrid-6d88d-default-rtdb.asia-southeast1.firebasedatabase.app"
+};
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const faultThreshold = 0.01;
+let isRerouting = false;
+
+const lines = {
+    "line12": ["P1", "P2"],
+    "line23": ["P2", "P3"],
+    "line34": ["P3", "P4"],
+    "line41": ["P4", "P1"],
+    "line13": ["P1", "P3"],
+    "line24": ["P2", "P4"],
+    "line_station_p1": ["Station", "P1"]
+};
+
+const modal = document.getElementById("relayModal");
+const modalTitle = document.getElementById("relayTitle");
+const relayButtonsContainer = document.getElementById("relayButtons");
+const closeBtn = document.querySelector(".closeBtn");
+let allData = {};
+
+closeBtn.addEventListener("click", () => { modal.style.display = "none"; });
+
+function showRelayButtons(post) {
+    modalTitle.innerText = `${post} Relay Controls`;
+    relayButtonsContainer.innerHTML = '';
+    const postData = allData[post];
+    if (!postData) {
+        relayButtonsContainer.innerHTML = "<p>No relay data found for this post.</p>";
+        modal.style.display = "flex";
+        return;
+    }
+    for (let i = 1; i <= 3; i++) {
+        const relayKey = `r${i}`;
+        const isOn = postData[relayKey] || false; 
+        const btn = document.createElement("button");
+        btn.id = `${post}-${relayKey}`;
+        btn.className = `relayBtn ${isOn ? "on" : "off"}`;
+        btn.innerText = `${relayKey.toUpperCase()} ${isOn ? "ON" : "OFF"}`;
+        btn.onclick = () => toggleRelay(post, relayKey);
+        relayButtonsContainer.appendChild(btn);
+    }
+    modal.style.display = "flex";
+}
+
+function toggleRelay(post, relay) {
+    const btn = document.getElementById(`${post}-${relay}`);
+    const isOn = btn.classList.contains("on");
+    const newState = !isOn;
+    set(ref(db, `grid/posts/${post}/${relay}`), newState)
+        .then(() => { updateLog(`Command sent: ${post} ${relay} ${newState ? "ON" : "OFF"}`); })
+        .catch(error => { updateLog(`Error: ${error.message}`); });
+}
+
+function updateLine(lineId, data) {
+    const posts = lines[lineId];
+    if (!posts) return;
+    const [p1, p2] = posts;
+    const current1 = data[p1]?.current || 0;
+    const current2 = data[p2]?.current || 0;
+    const line = document.getElementById(lineId);
+    if (!line) return;
+    if (lineId === "line_station_p1") {
+        const p1RelayStatus = data[p1]?.r1 || false;
+        line.setAttribute("stroke", (p1RelayStatus && current1 > faultThreshold) ? "lime" : "red");
+        return;
+    }
+    line.setAttribute("stroke", (current1 > faultThreshold && current2 > faultThreshold) ? "lime" :
+        (current1 <= faultThreshold && current2 <= faultThreshold ? "red" : "#555"));
+}
+
+function updateLog(message) {
+    const logData = document.getElementById("logData");
+    const newLog = document.createElement("div");
+    newLog.className = "statusBox";
+    newLog.innerHTML = `<p>${new Date().toLocaleTimeString()}: ${message}</p>`;
+    logData.prepend(newLog);
+    if (logData.children.length > 10) logData.removeChild(logData.lastChild);
+}
+
+async function checkAndReroute(data) {
+    if (isRerouting) return;
+    const p1Current = data["P1"]?.current || 0;
+    const p2Current = data["P2"]?.current || 0;
+    const p3Current = data["P3"]?.current || 0;
+    const p4Current = data["P4"]?.current || 0;
+    const isP1Connected = data["P1"]?.r3 || false;
+    const isP2Connected = data["P2"]?.r3 || false;
+    const isP3Connected = data["P3"]?.r3 || false;
+
+    if (p1Current > faultThreshold && p2Current > faultThreshold && p3Current <= faultThreshold && p4Current <= faultThreshold && isP2Connected) {
+        isRerouting = true;
+        updateLog("Fault detected: P2-P3. Rerouting via P2-P4-P3.");
+        await set(ref(db, 'grid/posts/P2/r3'), false);
+        await set(ref(db, 'grid/posts/P3/r1'), false);
+        await set(ref(db, 'grid/posts/P2/r2'), true);
+        await set(ref(db, 'grid/posts/P4/r1'), true);
+        isRerouting = false;
+        return;
+    }
+    if (p1Current > faultThreshold && p2Current > faultThreshold && p3Current > faultThreshold && p4Current <= faultThreshold && isP3Connected) {
+        isRerouting = true;
+        updateLog("Fault detected: P3-P4. Rerouting via P2-P4.");
+        await set(ref(db, 'grid/posts/P3/r3'), false);
+        await set(ref(db, 'grid/posts/P4/r1'), false);
+        await set(ref(db, 'grid/posts/P2/r2'), true);
+        await set(ref(db, 'grid/posts/P4/r2'), false);
+        isRerouting = false;
+        return;
+    }
+    if (p1Current > faultThreshold && p2Current <= faultThreshold && p3Current <= faultThreshold && p4Current <= faultThreshold && isP1Connected) {
+        isRerouting = true;
+        updateLog("Fault detected: P1-P2. Rerouting via P1-P4-P3-P2.");
+        await set(ref(db, 'grid/posts/P1/r3'), false);
+        await set(ref(db, 'grid/posts/P2/r1'), false);
+        await set(ref(db, 'grid/posts/P1/r1'), true);
+        await set(ref(db, 'grid/posts/P4/r1'), true);
+        await set(ref(db, 'grid/posts/P3/r1'), true);
+        isRerouting = false;
+        return;
+    }
+}
+
+// Listen for posts
+onValue(ref(db, "grid/posts"), snapshot => {
+    const data = snapshot.val();
+    if (!data) return;
+    allData = data;
+
+    let postHtml = "";
+    Object.keys(data).forEach(post => {
+        const current = data[post]?.current || 0;
+        const status = current > faultThreshold ? "Normal" : "Fault";
+        postHtml += `<div class="statusBox"><h3>${post}</h3>
+        <p>Current: ${current.toFixed(2)} A</p>
+        <p>Status: ${status}</p></div>`;
+    });
+    document.getElementById("postData").innerHTML = postHtml;
+
+    let relayHtml = "";
+    Object.keys(data).forEach(post => {
+        for (let i = 1; i <= 3; i++) {
+            const relayKey = `r${i}`;
+            const relayStatus = data[post][relayKey] ? "ON" : "OFF";
+            const color = data[post][relayKey] ? "#00e676" : "#ff4444";
+            relayHtml += `<div class="statusBox"><h3>${post} - R${i}</h3>
+            <p style="color:${color};">Status: ${relayStatus}</p></div>`;
+        }
+    });
+    document.getElementById("relayData").innerHTML = relayHtml;
+
+    Object.keys(lines).forEach(lineId => updateLine(lineId, data));
+
+    document.getElementById("statusMsg").innerText =
+        `Data updated at ${new Date().toLocaleTimeString()}`;
+
+    checkAndReroute(allData);
+});
+
+window.showRelayButtons = showRelayButtons;
+window.toggleRelay = toggleRelay;
+</script>
+</body>
+</html>
